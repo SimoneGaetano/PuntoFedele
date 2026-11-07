@@ -1,0 +1,156 @@
+{
+  "name": "01 - Login & Verifica Permessi",
+  "nodes": [
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"success\": false,\n  \"messaggio\": \"credenziali non valide\"\n}\n",
+        "options": {
+          "responseCode": 401
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -32,
+        208
+      ],
+      "id": "059654a0-bc38-4c9c-8434-cc5c5ee0c903",
+      "name": "Respond to Webhook1"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": true,\n  \"ruolo\": \"{{ $json.ruolo }}\",\n  \"nome\": \"{{ $json.nome }}\",\n  \"cognome\": \"{{ $json.cognome }}\",\n  \"messaggio\": \"Login effettuato\"\n}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -32,
+        16
+      ],
+      "id": "73bfbccf-4928-409f-a1a7-190470634549",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json._id }}",
+              "operation": "isNotEmpty"
+            }
+          ]
+        }
+      },
+      "id": "7cb987a6-d4ec-47fb-ad2d-2181ca75f995",
+      "name": "Credenziali Valide?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        -256,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "collection": "users",
+        "options": {},
+        "query": "={\n  \"username\": \"{{ $('Webhook Login').item.json.body.username }}\",\n  \"password\": \"{{ $('Webhook Login').item.json.body.password }}\",\n  \"attivo\": true\n}\n"
+      },
+      "id": "00a1b14f-9560-405a-a3b1-c9a8e60b7bd0",
+      "name": "MongoDB - Cerca Utente",
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1,
+      "position": [
+        -480,
+        112
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "mongoDb": {
+          "id": "8CO41cA5SdkQ0aAv",
+          "name": "MongoDB account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "login",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "633d02a6-8fef-44d2-87a0-ccd960f6a1ff",
+      "name": "Webhook Login",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -704,
+        112
+      ],
+      "webhookId": "login-webhook",
+      "authentication": "none"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Credenziali Valide?": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond to Webhook1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MongoDB - Cerca Utente": {
+      "main": [
+        [
+          {
+            "node": "Credenziali Valide?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook Login": {
+      "main": [
+        [
+          {
+            "node": "MongoDB - Cerca Utente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "eb299735-542d-4198-85b5-b246e63e3936",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "2f4c030ca5a91da5844fc46a8a504179c1d00959cd4317266fccd7d315c73fde"
+  },
+  "id": "buyMEsbf21bEGw31",
+  "tags": []
+}

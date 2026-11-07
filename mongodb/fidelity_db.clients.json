@@ -1,0 +1,75 @@
+[{
+  "_id": {
+    "$oid": "6ae60ea195d55fb2808de666"
+  },
+  "nome": "Luca",
+  "cognome": "Ferrari",
+  "email": "luca.ferrari@email.it",
+  "telefono": "+39 333 1234567",
+  "saldo_punti": 120,
+  "data_registrazione": {
+    "$date": "2025-01-15T00:00:00.000Z"
+  },
+  "attivo": true,
+  "codice_cliente": "FC-0001"
+},
+{
+  "_id": {
+    "$oid": "6ae60ea195d55fb2808de667"
+  },
+  "nome": "Giulia",
+  "cognome": "Romano",
+  "email": "giulia.romano@email.it",
+  "telefono": "+39 333 2345678",
+  "saldo_punti": 85,
+  "data_registrazione": {
+    "$date": "2025-02-20T00:00:00.000Z"
+  },
+  "attivo": true,
+  "codice_cliente": "FC-0002"
+},
+{
+  "_id": {
+    "$oid": "6ae60ea195d55fb2808de668"
+  },
+  "nome": "Marco",
+  "cognome": "Esposito",
+  "email": "marco.esposito@email.it",
+  "telefono": "+39 333 3456789",
+  "saldo_punti": 850,
+  "data_registrazione": {
+    "$date": "2024-11-10T00:00:00.000Z"
+  },
+  "attivo": true,
+  "codice_cliente": "FC-0003"
+},
+{
+  "_id": {
+    "$oid": "6ae60ea195d55fb2808de669"
+  },
+  "nome": "Sara",
+  "cognome": "Conti",
+  "email": "sara.conti@email.it",
+  "telefono": "+39 333 4567890",
+  "saldo_punti": 40,
+  "data_registrazione": {
+    "$date": "2026-03-05T00:00:00.000Z"
+  },
+  "attivo": true,
+  "codice_cliente": "FC-0004"
+},
+{
+  "_id": {
+    "$oid": "6ae60ea195d55fb2808de66a"
+  },
+  "nome": "Andrea",
+  "cognome": "Marini",
+  "email": "andrea.marini@email.it",
+  "telefono": "+39 333 5678901",
+  "saldo_punti": 0,
+  "data_registrazione": {
+    "$date": "2026-04-12T00:00:00.000Z"
+  },
+  "attivo": true,
+  "codice_cliente": "FC-0005"
+}]

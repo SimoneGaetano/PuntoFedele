@@ -1,0 +1,33 @@
+[{
+  "_id": {
+    "$oid": "6ae60bbadca3d10b348de666"
+  },
+  "username": "operatore",
+  "password": "operatore123",
+  "ruolo": "Operatore",
+  "nome": "Mario",
+  "cognome": "Rossi",
+  "attivo": true
+},
+{
+  "_id": {
+    "$oid": "6ae60bbadca3d10b348de667"
+  },
+  "username": "responsabile",
+  "password": "responsabile123",
+  "ruolo": "Responsabile",
+  "nome": "Laura",
+  "cognome": "Bianchi",
+  "attivo": true
+},
+{
+  "_id": {
+    "$oid": "6ae60bbadca3d10b348de668"
+  },
+  "username": "admin",
+  "password": "admin123",
+  "ruolo": "Amministratore",
+  "nome": "Giuseppe",
+  "cognome": "Verdi",
+  "attivo": true
+}]

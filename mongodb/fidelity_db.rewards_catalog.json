@@ -1,0 +1,60 @@
+[{
+  "_id": {
+    "$oid": "6ae6124905bba7c7f88de666"
+  },
+  "nome": "Buono da 5 €",
+  "descrizione": "Buono sconto da 5 euro spendibile in negozio",
+  "costo_punti": 100,
+  "disponibile": true,
+  "data_inserimento": {
+    "$date": "2026-01-01T00:00:00.000Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6ae6124905bba7c7f88de667"
+  },
+  "nome": "Buono da 20 €",
+  "descrizione": "Buono sconto da 20 euro spendibile in negozio",
+  "costo_punti": 500,
+  "disponibile": true,
+  "data_inserimento": {
+    "$date": "2026-01-01T00:00:00.000Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6ae6124905bba7c7f88de668"
+  },
+  "nome": "Tazza",
+  "descrizione": "Tazza brandizzata dell'azienda",
+  "costo_punti": 250,
+  "disponibile": true,
+  "data_inserimento": {
+    "$date": "2026-01-01T00:00:00.000Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6ae6124905bba7c7f88de669"
+  },
+  "nome": "Zaino",
+  "descrizione": "Zaino con logo",
+  "costo_punti": 800,
+  "disponibile": true,
+  "data_inserimento": {
+    "$date": "2026-01-01T00:00:00.000Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6ae6124905bba7c7f88de66a"
+  },
+  "nome": "Cappellino",
+  "descrizione": "Cappellino con visiera brandizzato",
+  "costo_punti": 90,
+  "disponibile": false,
+  "data_inserimento": {
+    "$date": "2026-01-01T00:00:00.000Z"
+  }
+}]

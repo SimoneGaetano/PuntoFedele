@@ -1,0 +1,271 @@
+{
+  "name": "06 - Dashboard",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "dashboard",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "04dabfd2-4dba-469b-8bc5-36e2cd4b076c",
+      "name": "Webhook Dashboard",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        -144,
+        -32
+      ],
+      "webhookId": "57206948-8020-44d6-a037-45640781e43e"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nconst b = item.body || {};\n\nlet status = 400;\nlet errore = 'INPUT_NON_VALIDO';\nlet messaggio = null;\n\nif (!b.ruolo) {\n  messaggio = \"Campo 'ruolo' mancante\";\n} else if (!['Responsabile', 'Amministratore'].includes(b.ruolo)) {\n  status = 403;\n  errore = 'NON_AUTORIZZATO';\n  messaggio = 'Solo Responsabile e Amministratore possono consultare la dashboard';\n}\n\nreturn [{ json: { ...item, ok: messaggio === null, status, errore, messaggio } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        80,
+        -32
+      ],
+      "id": "8c51f049-394d-4b26-93a8-ad926dd1d511",
+      "name": "Code - Valida Input"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "35a818ae-44fa-4dfb-a118-efa4829ca9eb",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        304,
+        -32
+      ],
+      "id": "d5ca1695-a0ad-4967-9d14-fe5c99b57bf8",
+      "name": "IF - Richiesta Valida?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: false, errore: $json.errore, messaggio: $json.messaggio } }}",
+        "options": {
+          "responseCode": "={{ $json.status }}"
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        528,
+        176
+      ],
+      "id": "18dd165e-f8b4-4c27-a1cc-03411f665252",
+      "name": "Respond - Errore Richiesta"
+    },
+    {
+      "parameters": {
+        "collection": "clients",
+        "options": {},
+        "query": "={{ JSON.stringify({}) }}"
+      },
+      "id": "e33f8701-8cc3-4e6f-b9b9-2fe27365cb31",
+      "name": "MongoDB - Cerca Clienti",
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.1,
+      "position": [
+        528,
+        -32
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "mongoDb": {
+          "id": "8CO41cA5SdkQ0aAv",
+          "name": "MongoDB account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Riunisce tutti i clienti in un solo item: senza questo passaggio il nodo successivo\n// verrebbe eseguito una volta per ogni cliente e i movimenti risulterebbero duplicati.\nconst clienti = $input.all().map(i => i.json).filter(c => c && c._id);\nreturn [{ json: { clienti } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        752,
+        -32
+      ],
+      "id": "b7794158-2e6f-44c5-b505-90bc2cb84d4c",
+      "name": "Code - Raccogli Clienti"
+    },
+    {
+      "parameters": {
+        "collection": "purchases_movements",
+        "options": {},
+        "query": "={{ JSON.stringify({}) }}"
+      },
+      "id": "35fff367-708c-44be-8311-59b95191d09c",
+      "name": "MongoDB - Cerca Movimenti",
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.1,
+      "position": [
+        976,
+        -32
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "mongoDb": {
+          "id": "8CO41cA5SdkQ0aAv",
+          "name": "MongoDB account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const clienti = $('Code - Raccogli Clienti').first().json.clienti;\nconst movimenti = $input.all().map(i => i.json).filter(m => m && m._id);\n\n// un movimento è annullato se esiste un movimento \"annullamento\" che punta a lui\nconst annullati = new Set(\n  movimenti.filter(m => m.tipo === 'annullamento').map(m => String(m.movimento_originale_id))\n);\nconst validi = movimenti.filter(m => m.tipo !== 'annullamento' && !annullati.has(String(m._id)));\nconst acquisti = validi.filter(m => m.tipo === 'acquisto');\nconst riscatti = validi.filter(m => m.tipo === 'riscatto');\n\nconst somma = (lista, campo) => lista.reduce((s, m) => s + Math.abs(Number(m[campo]) || 0), 0);\nconst euro = n => Math.round(n * 100) / 100;\n\nconst clientiTop = clienti\n  .map(c => ({\n    id: String(c._id),\n    nome: c.nome,\n    cognome: c.cognome,\n    email: c.email,\n    saldo_punti: Number(c.saldo_punti) || 0\n  }))\n  .sort((a, b) => b.saldo_punti - a.saldo_punti)\n  .slice(0, 5)\n  .map((c, i) => ({ posizione: i + 1, ...c }));\n\nreturn [{ json: {\n  success: true,\n  totale_clienti: clienti.length,\n  punti_assegnati: somma(acquisti, 'punti'),\n  punti_utilizzati: somma(riscatti, 'punti'),\n  valore_acquisti: euro(somma(acquisti, 'importo_euro')),\n  numero_acquisti: acquisti.length,\n  numero_riscatti: riscatti.length,\n  clienti_top: clientiTop,\n  messaggio: 'Dashboard aggiornata'\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        -32
+      ],
+      "id": "b6d1e2ec-d2fd-47e8-83d1-c8f93792f4e9",
+      "name": "Code - Calcola Metriche"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1424,
+        -32
+      ],
+      "id": "0dc011ce-b3e4-4c8c-9530-c389da48ac6c",
+      "name": "Respond - Successo Dashboard"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook Dashboard": {
+      "main": [
+        [
+          {
+            "node": "Code - Valida Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Valida Input": {
+      "main": [
+        [
+          {
+            "node": "IF - Richiesta Valida?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Richiesta Valida?": {
+      "main": [
+        [
+          {
+            "node": "MongoDB - Cerca Clienti",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond - Errore Richiesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MongoDB - Cerca Clienti": {
+      "main": [
+        [
+          {
+            "node": "Code - Raccogli Clienti",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Raccogli Clienti": {
+      "main": [
+        [
+          {
+            "node": "MongoDB - Cerca Movimenti",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MongoDB - Cerca Movimenti": {
+      "main": [
+        [
+          {
+            "node": "Code - Calcola Metriche",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Calcola Metriche": {
+      "main": [
+        [
+          {
+            "node": "Respond - Successo Dashboard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "640caab4-de37-40b2-b619-68647e8bc552",
+  "meta": {
+    "instanceId": "2f4c030ca5a91da5844fc46a8a504179c1d00959cd4317266fccd7d315c73fde"
+  },
+  "id": "fuai4Yo8WeztPic2",
+  "tags": []
+}

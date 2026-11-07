@@ -1,0 +1,503 @@
+{
+  "name": "03 - Registra Acquisto",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "registra-acquisto",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "1287a932-abb8-4d17-85f2-31aa6eb4566a",
+      "name": "Webhook Registra Acquisto",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        576,
+        1008
+      ],
+      "webhookId": "4aa8b9c0-5e3f-4d9a-a9b3-ddb16cd7a58e"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nconst b = item.body || {};\nconst codice = String(b.codice_cliente || '').trim().toUpperCase();\nconst email = String(b.email || '').trim();\nconst filtro = codice ? { codice_cliente: codice } : { email };\nconst importo = Number(b.importo_euro);\nconst importoOk = ['number', 'string'].includes(typeof b.importo_euro) && Number.isFinite(importo) && importo > 0;\n\nlet messaggio = null;\nif (!codice && !email) messaggio = \"Indicare 'codice_cliente' o 'email'\";\nelse if (!importoOk) messaggio = \"Campo 'importo_euro' mancante o non valido (deve essere un numero maggiore di 0)\";\n\nreturn [{ json: {\n  ...item,\n  ok: messaggio === null,\n  errore: 'INPUT_NON_VALIDO',\n  messaggio,\n  filtro,\n  importo_euro: importoOk ? importo : 0,\n  punti: importoOk ? Math.floor(importo) : 0,   // regola: 1 euro = 1 punto (decimali scartati)\n  operatore: String(b.operatore || 'operatore').trim()\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        800,
+        1008
+      ],
+      "id": "d4d54078-863f-4909-9027-1609d073e485",
+      "name": "Code - Valida Input"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "765096b7-ab6f-419e-859b-9c867b1450e7",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1024,
+        1008
+      ],
+      "id": "0c240d31-2ce6-4f2b-a9dc-960004d7cc71",
+      "name": "IF - Richiesta Valida?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: false, errore: $json.errore, messaggio: $json.messaggio } }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1248,
+        1216
+      ],
+      "id": "573c2f79-ce72-4844-a505-5b8d0f8fd818",
+      "name": "Respond - Errore Input"
+    },
+    {
+      "parameters": {
+        "collection": "clients",
+        "options": {
+          "limit": 1
+        },
+        "query": "={{ JSON.stringify($('Code - Valida Input').first().json.filtro) }}"
+      },
+      "id": "6b83091e-0165-4db9-9e31-ca35fb49df9a",
+      "name": "MongoDB - Cerca Cliente",
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.1,
+      "position": [
+        1248,
+        1008
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "mongoDb": {
+          "id": "8CO41cA5SdkQ0aAv",
+          "name": "MongoDB account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "97266ed8-65da-4d6d-91b4-ce44eae155d4",
+              "leftValue": "={{ $json._id ? String($json._id) : '' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1472,
+        1008
+      ],
+      "id": "808b374b-a685-463b-bc8b-fadca68afc88",
+      "name": "IF - Cliente Esiste?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ {\"success\": false, \"errore\": \"CLIENTE_NON_TROVATO\", \"messaggio\": \"Cliente non trovato\"} }}",
+        "options": {
+          "responseCode": 404
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1696,
+        1216
+      ],
+      "id": "1eb30098-a9ff-4198-9965-4ac1db4a1592",
+      "name": "Respond - Cliente Non Trovato"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "7505d67f-0509-4db2-abfe-6126270892f6",
+              "name": "cliente_id",
+              "value": "={{ String($json._id) }}",
+              "type": "string"
+            },
+            {
+              "id": "1d4355f5-51ab-4a6a-818f-d3b5e0b3f70d",
+              "name": "email",
+              "value": "={{ $json.email }}",
+              "type": "string"
+            },
+            {
+              "id": "8d02f772-633c-49cc-8f9a-55242ae5be77",
+              "name": "codice_cliente",
+              "value": "={{ $json.codice_cliente }}",
+              "type": "string"
+            },
+            {
+              "id": "4e71e51e-3a5d-4f58-9198-a5dcaccd9e64",
+              "name": "nome",
+              "value": "={{ $json.nome }}",
+              "type": "string"
+            },
+            {
+              "id": "4b61f32d-0479-43b6-82d5-3ffff9154496",
+              "name": "cognome",
+              "value": "={{ $json.cognome }}",
+              "type": "string"
+            },
+            {
+              "id": "f5650f2d-f660-4046-93ae-7eb5b4416050",
+              "name": "importo_euro",
+              "value": "={{ $('Code - Valida Input').first().json.importo_euro }}",
+              "type": "number"
+            },
+            {
+              "id": "bf2794e8-516b-468d-ab73-172bb12bb860",
+              "name": "punti_da_aggiungere",
+              "value": "={{ $('Code - Valida Input').first().json.punti }}",
+              "type": "number"
+            },
+            {
+              "id": "e4560310-c150-4d76-aaa4-bb1cc45a39ca",
+              "name": "saldo_precedente",
+              "value": "={{ Number($json.saldo_punti) || 0 }}",
+              "type": "number"
+            },
+            {
+              "id": "315f4832-ac20-4bd2-951a-840cbf9e2203",
+              "name": "nuovo_saldo",
+              "value": "={{ (Number($json.saldo_punti) || 0) + $('Code - Valida Input').first().json.punti }}",
+              "type": "number"
+            },
+            {
+              "id": "0baeb3fe-4239-49da-a14c-d7f2dea5d5fd",
+              "name": "saldo_punti",
+              "value": "={{ (Number($json.saldo_punti) || 0) + $('Code - Valida Input').first().json.punti }}",
+              "type": "number"
+            },
+            {
+              "id": "064af1f3-38fe-475c-a562-35dcc729bd61",
+              "name": "data_acquisto",
+              "value": "={{ new Date().toISOString() }}",
+              "type": "string"
+            },
+            {
+              "id": "141c03c6-a17e-4edd-90e6-f30d1674baca",
+              "name": "operatore",
+              "value": "={{ $('Code - Valida Input').first().json.operatore }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1696,
+        1008
+      ],
+      "id": "d3aea7c1-e88d-45bd-bc3b-5f085b1934b6",
+      "name": "Set - Calcolo Nuovo Saldo"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "collection": "clients",
+        "updateKey": "email",
+        "fields": "saldo_punti",
+        "options": {}
+      },
+      "id": "85a514fa-225e-48c3-b024-43b0510a3310",
+      "name": "MongoDB - Aggiorna Cliente",
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.1,
+      "position": [
+        1920,
+        1008
+      ],
+      "credentials": {
+        "mongoDb": {
+          "id": "8CO41cA5SdkQ0aAv",
+          "name": "MongoDB account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "3473a114-a911-4068-be2f-9fa9c9b5855e",
+              "name": "cliente_id",
+              "value": "={{ $('Set - Calcolo Nuovo Saldo').first().json.cliente_id }}",
+              "type": "string"
+            },
+            {
+              "id": "35752e2a-a698-47d0-8e4c-aaa9c4a66672",
+              "name": "tipo",
+              "value": "acquisto",
+              "type": "string"
+            },
+            {
+              "id": "0f17fd6b-2481-405e-9474-6fc4811c3ca0",
+              "name": "importo_euro",
+              "value": "={{ $('Set - Calcolo Nuovo Saldo').first().json.importo_euro }}",
+              "type": "number"
+            },
+            {
+              "id": "0291b8de-e38b-4c94-9c66-7c890a2fe105",
+              "name": "punti",
+              "value": "={{ $('Set - Calcolo Nuovo Saldo').first().json.punti_da_aggiungere }}",
+              "type": "number"
+            },
+            {
+              "id": "56e47d6f-68fa-44b3-b3bd-31c77f006592",
+              "name": "data",
+              "value": "={{ $('Set - Calcolo Nuovo Saldo').first().json.data_acquisto }}",
+              "type": "string"
+            },
+            {
+              "id": "5dd75e58-25c4-4a91-a749-d39adc3d7fc8",
+              "name": "operatore",
+              "value": "={{ $('Set - Calcolo Nuovo Saldo').first().json.operatore }}",
+              "type": "string"
+            },
+            {
+              "id": "bcf4ce00-eb4e-4a09-af62-447683ce4b65",
+              "name": "note",
+              "value": "Acquisto in negozio",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2144,
+        1008
+      ],
+      "id": "53558acc-0b24-402d-ae76-88ca5f9d8afd",
+      "name": "Set - Prepara Movimento"
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "collection": "purchases_movements",
+        "fields": "cliente_id,tipo,importo_euro,punti,data,operatore,note",
+        "options": {
+          "dateFields": "data"
+        }
+      },
+      "id": "a4f783ad-3ac4-43f7-a92d-ef7488c66cf0",
+      "name": "MongoDB - Inserisci Movimento",
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.1,
+      "position": [
+        2368,
+        1008
+      ],
+      "credentials": {
+        "mongoDb": {
+          "id": "8CO41cA5SdkQ0aAv",
+          "name": "MongoDB account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, cliente: { id: $('Set - Calcolo Nuovo Saldo').first().json.cliente_id, codice_cliente: $('Set - Calcolo Nuovo Saldo').first().json.codice_cliente, nome: $('Set - Calcolo Nuovo Saldo').first().json.nome, cognome: $('Set - Calcolo Nuovo Saldo').first().json.cognome, email: $('Set - Calcolo Nuovo Saldo').first().json.email, saldo_punti: $('Set - Calcolo Nuovo Saldo').first().json.nuovo_saldo }, messaggio: 'Acquisto registrato con successo', movimento_id: String($json.id || $json._id), punti_aggiunti: $('Set - Calcolo Nuovo Saldo').first().json.punti_da_aggiungere, nuovo_saldo: $('Set - Calcolo Nuovo Saldo').first().json.nuovo_saldo } }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        2592,
+        1008
+      ],
+      "id": "2d4af101-6d99-4ac4-82eb-643c988a328e",
+      "name": "Respond - Successo"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook Registra Acquisto": {
+      "main": [
+        [
+          {
+            "node": "Code - Valida Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Valida Input": {
+      "main": [
+        [
+          {
+            "node": "IF - Richiesta Valida?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Richiesta Valida?": {
+      "main": [
+        [
+          {
+            "node": "MongoDB - Cerca Cliente",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond - Errore Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MongoDB - Cerca Cliente": {
+      "main": [
+        [
+          {
+            "node": "IF - Cliente Esiste?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Cliente Esiste?": {
+      "main": [
+        [
+          {
+            "node": "Set - Calcolo Nuovo Saldo",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond - Cliente Non Trovato",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set - Calcolo Nuovo Saldo": {
+      "main": [
+        [
+          {
+            "node": "MongoDB - Aggiorna Cliente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MongoDB - Aggiorna Cliente": {
+      "main": [
+        [
+          {
+            "node": "Set - Prepara Movimento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set - Prepara Movimento": {
+      "main": [
+        [
+          {
+            "node": "MongoDB - Inserisci Movimento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MongoDB - Inserisci Movimento": {
+      "main": [
+        [
+          {
+            "node": "Respond - Successo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "11a3c892-d119-40e3-a800-c76fc5f7e6db",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "2f4c030ca5a91da5844fc46a8a504179c1d00959cd4317266fccd7d315c73fde"
+  },
+  "id": "SgekrKvaUHtu4bWU",
+  "tags": []
+}

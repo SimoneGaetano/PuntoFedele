@@ -1,0 +1,735 @@
+{
+  "name": "05 - Catalogo Premi e Riscatto",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "premi",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "b4e79fd5-80dc-486c-ace2-b87e6ef2abf0",
+      "name": "Webhook Premi",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        528,
+        1152
+      ],
+      "webhookId": "2bbae5ee-2f9f-470c-9164-cdebef7564ef"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nconst b = item.body || {};\nconst isId = v => typeof v === 'string' && /^[0-9a-fA-F]{24}$/.test(v);\nconst codice = String(b.codice_cliente || '').trim().toUpperCase();\nconst email = String(b.email || '').trim();\nconst filtro = codice ? { codice_cliente: codice } : { email };\n\nlet status = 400;\nlet errore = 'INPUT_NON_VALIDO';\nlet messaggio = null;\n\nif (!['catalogo', 'riscatto'].includes(b.azione)) {\n  messaggio = \"Campo 'azione' mancante o non valido (catalogo | riscatto)\";\n} else if (!codice && !email) {\n  messaggio = \"Indicare 'codice_cliente' o 'email'\";\n} else if (!b.ruolo) {\n  messaggio = \"Campo 'ruolo' mancante\";\n} else if (b.azione === 'riscatto' && !isId(b.premio_id)) {\n  messaggio = \"Campo 'premio_id' mancante o non valido\";\n} else if (b.azione === 'riscatto' && !b.operatore) {\n  messaggio = \"Campo 'operatore' mancante\";\n} else if (b.ruolo !== 'Amministratore') {\n  status = 403;\n  errore = 'NON_AUTORIZZATO';\n  messaggio = \"Solo l'Amministratore può gestire i premi\";\n}\n\nreturn [{ json: {\n  ...item,\n  ok: messaggio === null,\n  status,\n  errore,\n  messaggio,\n  filtro\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        752,
+        1152
+      ],
+      "id": "043c6bf8-c40a-4a5e-8854-d9cd6238eec4",
+      "name": "Code - Valida Input"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "bb637958-0c5d-443e-8482-46614293e387",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        976,
+        1152
+      ],
+      "id": "9f7af407-2cb3-4665-b329-7a3148c84b70",
+      "name": "IF - Richiesta Valida?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: false, errore: $json.errore, messaggio: $json.messaggio } }}",
+        "options": {
+          "responseCode": "={{ $json.status }}"
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1200,
+        1392
+      ],
+      "id": "8c0ae9a4-aaa1-4dd3-9226-90e2b11a84c8",
+      "name": "Respond - Errore Richiesta"
+    },
+    {
+      "parameters": {
+        "collection": "clients",
+        "options": {
+          "limit": 1
+        },
+        "query": "={{ JSON.stringify($('Code - Valida Input').first().json.filtro) }}"
+      },
+      "id": "f43e4677-fa11-45d9-afc7-69702abbdfb5",
+      "name": "MongoDB - Cerca Cliente",
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.1,
+      "position": [
+        1200,
+        1152
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "mongoDb": {
+          "id": "8CO41cA5SdkQ0aAv",
+          "name": "MongoDB account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "bab07849-fa9f-4135-b0c6-3e4d638a2074",
+              "leftValue": "={{ $json._id ? String($json._id) : '' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1424,
+        1152
+      ],
+      "id": "85284250-0015-4f6d-a78d-f0e05847c823",
+      "name": "IF - Cliente Esiste?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ {\"success\": false, \"errore\": \"CLIENTE_NON_TROVATO\", \"messaggio\": \"Il cliente richiesto non esiste\"} }}",
+        "options": {
+          "responseCode": 404
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1648,
+        1392
+      ],
+      "id": "3aa24d26-09bb-4640-ad9d-d3f6baf7f367",
+      "name": "Respond - Cliente Non Trovato"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "5568228c-a858-4c33-bfc5-9e41b8f3fd44",
+              "leftValue": "={{ $('Code - Valida Input').first().json.body.azione }}",
+              "rightValue": "catalogo",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1648,
+        1152
+      ],
+      "id": "b3c6971e-2fc4-4e08-9b93-dca7fb31046c",
+      "name": "IF - Azione Catalogo?"
+    },
+    {
+      "parameters": {
+        "collection": "rewards_catalog",
+        "options": {},
+        "query": "={{ JSON.stringify({ disponibile: true }) }}"
+      },
+      "id": "2c67104e-b07d-4446-9176-8d9e99986021",
+      "name": "MongoDB - Cerca Premi Disponibili",
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.1,
+      "position": [
+        1872,
+        944
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "mongoDb": {
+          "id": "8CO41cA5SdkQ0aAv",
+          "name": "MongoDB account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const cliente = $('MongoDB - Cerca Cliente').first().json;\nconst saldo = Number(cliente.saldo_punti) || 0;\n\nconst premi = $input.all()\n  .map(i => i.json)\n  .filter(p => p && p._id)\n  .map(p => {\n    const costo = Number(p.costo_punti) || 0;\n    return {\n      id: String(p._id),\n      nome: p.nome,\n      descrizione: p.descrizione,\n      costo_punti: costo,\n      riscattabile: saldo >= costo,\n      punti_mancanti: Math.max(0, costo - saldo)\n    };\n  })\n  .sort((a, b) => a.costo_punti - b.costo_punti);\n\nreturn [{ json: {\n  success: true,\n  azione: 'catalogo',\n  cliente: {\n    id: String(cliente._id),\n    codice_cliente: cliente.codice_cliente,\n    nome: cliente.nome,\n    cognome: cliente.cognome,\n    email: cliente.email,\n    saldo_punti: saldo\n  },\n  totale: premi.length,\n  premi,\n  messaggio: premi.length ? 'Catalogo premi recuperato' : 'Nessun premio disponibile'\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2096,
+        944
+      ],
+      "id": "4facbe61-238f-4df3-9593-4b654fa94f82",
+      "name": "Code - Formatta Catalogo"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        2320,
+        944
+      ],
+      "id": "15f3756b-5749-4061-83fa-2b7ae1f3f559",
+      "name": "Respond - Successo Catalogo"
+    },
+    {
+      "parameters": {
+        "collection": "rewards_catalog",
+        "options": {
+          "limit": 1
+        },
+        "query": "={{ JSON.stringify({ $expr: { $eq: [{ $toString: '$_id' }, String($('Code - Valida Input').first().json.body.premio_id)] } }) }}"
+      },
+      "id": "3f731ef0-7973-4e0f-911c-027abcd80d59",
+      "name": "MongoDB - Cerca Premio",
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.1,
+      "position": [
+        1872,
+        1312
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "mongoDb": {
+          "id": "8CO41cA5SdkQ0aAv",
+          "name": "MongoDB account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "b1298a30-4385-4634-bdd6-ade290d1fc60",
+              "leftValue": "={{ $json._id ? String($json._id) : '' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "c3c0ffd8-6f88-4071-ba2b-642efba97670",
+              "leftValue": "={{ $json.disponibile === true }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2096,
+        1312
+      ],
+      "id": "155ceb3a-a303-448f-bad9-643496ab54f3",
+      "name": "IF - Premio Disponibile?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ {\"success\": false, \"errore\": \"PREMIO_NON_DISPONIBILE\", \"messaggio\": \"Il premio non esiste oppure non e disponibile\"} }}",
+        "options": {
+          "responseCode": 404
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        2320,
+        1456
+      ],
+      "id": "e4bbac63-8dcd-4694-bf65-415c1e8e091f",
+      "name": "Respond - Premio Non Disponibile"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "8f19d493-9a27-45b9-998b-21d6f3ea98e8",
+              "leftValue": "={{ Number($('MongoDB - Cerca Cliente').first().json.saldo_punti) || 0 }}",
+              "rightValue": "={{ Number($json.costo_punti) }}",
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2320,
+        1264
+      ],
+      "id": "71318355-0634-48aa-98e2-6f9915e812f0",
+      "name": "IF - Saldo Sufficiente?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: false, errore: 'SALDO_INSUFFICIENTE', messaggio: 'Il cliente non ha punti sufficienti per questo premio', saldo_punti: Number($('MongoDB - Cerca Cliente').first().json.saldo_punti) || 0, costo_punti: Number($('MongoDB - Cerca Premio').first().json.costo_punti) || 0 } }}",
+        "options": {
+          "responseCode": 409
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        2544,
+        1408
+      ],
+      "id": "a1ce29c6-bcc1-412c-bb2a-8a69fe251287",
+      "name": "Respond - Saldo Insufficiente"
+    },
+    {
+      "parameters": {
+        "jsCode": "const cliente = $('MongoDB - Cerca Cliente').first().json;\nconst premio = $('MongoDB - Cerca Premio').first().json;\n\nconst costo = Number(premio.costo_punti);\nif (!Number.isFinite(costo) || costo <= 0) throw new Error('Costo del premio non valido');\n\nconst saldoPrecedente = Number(cliente.saldo_punti) || 0;\nif (saldoPrecedente < costo) throw new Error('Saldo insufficiente');\n\nreturn [{ json: {\n  email: cliente.email,\n  codice_cliente: cliente.codice_cliente,\n  cliente_id: String(cliente._id),\n  premio_id: String(premio._id),\n  premio_nome: premio.nome,\n  saldo_precedente: saldoPrecedente,\n  punti_usati: costo,\n  saldo_punti: saldoPrecedente - costo\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2544,
+        1152
+      ],
+      "id": "33ee7536-5428-43e3-8dce-73013c6f885f",
+      "name": "Code - Calcolo Nuovo Saldo"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "collection": "clients",
+        "updateKey": "email",
+        "fields": "saldo_punti",
+        "options": {}
+      },
+      "id": "4bdb8114-0e28-4738-a5dc-6bf259dec206",
+      "name": "MongoDB - Aggiorna Cliente",
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.1,
+      "position": [
+        2768,
+        1152
+      ],
+      "credentials": {
+        "mongoDb": {
+          "id": "8CO41cA5SdkQ0aAv",
+          "name": "MongoDB account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "0569422c-1ea7-4abc-bc71-861883ebe910",
+              "name": "cliente_id",
+              "value": "={{ $('Code - Calcolo Nuovo Saldo').first().json.cliente_id }}",
+              "type": "string"
+            },
+            {
+              "id": "a90eb002-2548-484b-a92d-b311de587c4b",
+              "name": "tipo",
+              "value": "riscatto",
+              "type": "string"
+            },
+            {
+              "id": "2712a308-d08c-45e3-be02-d9057f2f4e6c",
+              "name": "importo_euro",
+              "value": "0",
+              "type": "number"
+            },
+            {
+              "id": "418eb651-7e36-4420-ae8f-98c9b2e9e6c2",
+              "name": "punti",
+              "value": "={{ -$('Code - Calcolo Nuovo Saldo').first().json.punti_usati }}",
+              "type": "number"
+            },
+            {
+              "id": "1e98340d-eec4-404f-8878-91b4e80303a2",
+              "name": "data",
+              "value": "={{ new Date().toISOString() }}",
+              "type": "string"
+            },
+            {
+              "id": "9883b91a-08e3-44e5-9e91-d23b29f939c4",
+              "name": "operatore",
+              "value": "={{ $('Code - Valida Input').first().json.body.operatore }}",
+              "type": "string"
+            },
+            {
+              "id": "aec81606-465a-4f3e-80b6-b04e75af87a1",
+              "name": "note",
+              "value": "={{ 'Riscatto premio: ' + $('Code - Calcolo Nuovo Saldo').first().json.premio_nome }}",
+              "type": "string"
+            },
+            {
+              "id": "eb0d890c-15e2-47df-9e21-806728f48c5c",
+              "name": "premio_id",
+              "value": "={{ $('Code - Calcolo Nuovo Saldo').first().json.premio_id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2992,
+        1152
+      ],
+      "id": "8bb5382e-773d-409f-952d-c313a00a0532",
+      "name": "Set - Prepara Movimento"
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "collection": "purchases_movements",
+        "fields": "cliente_id,tipo,importo_euro,punti,data,operatore,note,premio_id",
+        "options": {
+          "dateFields": "data"
+        }
+      },
+      "id": "25de633e-7a99-44a3-be15-50cc5439e669",
+      "name": "MongoDB - Inserisci Movimento",
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.1,
+      "position": [
+        3216,
+        1152
+      ],
+      "credentials": {
+        "mongoDb": {
+          "id": "8CO41cA5SdkQ0aAv",
+          "name": "MongoDB account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, azione: 'riscatto', movimento_id: String($json.id || $json._id), cliente_id: $('Code - Calcolo Nuovo Saldo').first().json.cliente_id, codice_cliente: $('Code - Calcolo Nuovo Saldo').first().json.codice_cliente, premio: { id: $('Code - Calcolo Nuovo Saldo').first().json.premio_id, nome: $('Code - Calcolo Nuovo Saldo').first().json.premio_nome }, saldo_precedente: $('Code - Calcolo Nuovo Saldo').first().json.saldo_precedente, punti_usati: $('Code - Calcolo Nuovo Saldo').first().json.punti_usati, nuovo_saldo_punti: $('Code - Calcolo Nuovo Saldo').first().json.saldo_punti, messaggio: 'Premio riscattato con successo' } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        3440,
+        1152
+      ],
+      "id": "b197fe6d-a4df-49d6-8fd6-590f6ce63488",
+      "name": "Respond - Successo Riscatto"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook Premi": {
+      "main": [
+        [
+          {
+            "node": "Code - Valida Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Valida Input": {
+      "main": [
+        [
+          {
+            "node": "IF - Richiesta Valida?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Richiesta Valida?": {
+      "main": [
+        [
+          {
+            "node": "MongoDB - Cerca Cliente",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond - Errore Richiesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MongoDB - Cerca Cliente": {
+      "main": [
+        [
+          {
+            "node": "IF - Cliente Esiste?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Cliente Esiste?": {
+      "main": [
+        [
+          {
+            "node": "IF - Azione Catalogo?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond - Cliente Non Trovato",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Azione Catalogo?": {
+      "main": [
+        [
+          {
+            "node": "MongoDB - Cerca Premi Disponibili",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "MongoDB - Cerca Premio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MongoDB - Cerca Premi Disponibili": {
+      "main": [
+        [
+          {
+            "node": "Code - Formatta Catalogo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Formatta Catalogo": {
+      "main": [
+        [
+          {
+            "node": "Respond - Successo Catalogo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MongoDB - Cerca Premio": {
+      "main": [
+        [
+          {
+            "node": "IF - Premio Disponibile?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Premio Disponibile?": {
+      "main": [
+        [
+          {
+            "node": "IF - Saldo Sufficiente?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond - Premio Non Disponibile",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Saldo Sufficiente?": {
+      "main": [
+        [
+          {
+            "node": "Code - Calcolo Nuovo Saldo",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond - Saldo Insufficiente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Calcolo Nuovo Saldo": {
+      "main": [
+        [
+          {
+            "node": "MongoDB - Aggiorna Cliente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MongoDB - Aggiorna Cliente": {
+      "main": [
+        [
+          {
+            "node": "Set - Prepara Movimento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set - Prepara Movimento": {
+      "main": [
+        [
+          {
+            "node": "MongoDB - Inserisci Movimento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MongoDB - Inserisci Movimento": {
+      "main": [
+        [
+          {
+            "node": "Respond - Successo Riscatto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "fa12a800-1d43-47a9-9e2d-11d7a6ac75e1",
+  "meta": {
+    "instanceId": "2f4c030ca5a91da5844fc46a8a504179c1d00959cd4317266fccd7d315c73fde"
+  },
+  "id": "gcNjmJXaW9ui6bhr",
+  "tags": []
+}

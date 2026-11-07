@@ -1,0 +1,15 @@
+services:
+  mongodb:
+    image: mongo:7
+    container_name: fidelity-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - fidelity_mongo_data:/data/db
+      - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    environment:
+      MONGO_INITDB_DATABASE: fidelity_db
+
+volumes:
+  fidelity_mongo_data:

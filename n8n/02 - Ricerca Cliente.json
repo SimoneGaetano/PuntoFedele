@@ -1,0 +1,295 @@
+{
+  "name": "02 - Ricerca Cliente",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ricerca-cliente",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "f0ab6cd0-c755-47cf-8936-7ec4a0e9590d",
+      "name": "Webhook Ricerca Cliente",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        1664,
+        96
+      ],
+      "webhookId": "41d235a7-d1c5-43f5-901e-7258ab7af696"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "62533c7f-c494-4618-83c6-aa4c45cd5bfb",
+              "leftValue": "={{ (String($json.body.codice_cliente || '').trim() || String($json.body.email || '').trim()) }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1888,
+        96
+      ],
+      "id": "30374252-1757-421d-9ee5-8f7fb43d9942",
+      "name": "IF - Cliente Indicato?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ {\"success\": false, \"errore\": \"INPUT_NON_VALIDO\", \"messaggio\": \"Indicare 'codice_cliente' o 'email'\"} }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        2112,
+        304
+      ],
+      "id": "11b6cd7d-290a-4151-9f65-5ec40ecf7f5b",
+      "name": "Respond - Errore Input"
+    },
+    {
+      "parameters": {
+        "collection": "clients",
+        "options": {
+          "limit": 1
+        },
+        "query": "={{ JSON.stringify(String($('Webhook Ricerca Cliente').first().json.body.codice_cliente || '').trim() ? { codice_cliente: String($('Webhook Ricerca Cliente').first().json.body.codice_cliente).trim().toUpperCase() } : { email: String($('Webhook Ricerca Cliente').first().json.body.email || '').trim() }) }}"
+      },
+      "id": "cb242824-5661-4d02-87e8-187852cd2b1f",
+      "name": "MongoDB - Cerca Cliente",
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.1,
+      "position": [
+        2112,
+        96
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "mongoDb": {
+          "id": "8CO41cA5SdkQ0aAv",
+          "name": "MongoDB account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "ae4af9a7-eb16-4314-9ef1-f2a92c269fcc",
+              "leftValue": "={{ $json._id ? String($json._id) : '' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2336,
+        96
+      ],
+      "id": "bf259fa2-7718-4375-a220-2f4cf5c0dc70",
+      "name": "IF - Cliente Esiste?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ {\"success\": false, \"errore\": \"CLIENTE_NON_TROVATO\", \"messaggio\": \"Il cliente richiesto non esiste\"} }}",
+        "options": {
+          "responseCode": 404
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        2560,
+        304
+      ],
+      "id": "0e28bc49-5da9-451b-bbce-bac2d6ce7cff",
+      "name": "Respond - Cliente Non Trovato"
+    },
+    {
+      "parameters": {
+        "collection": "purchases_movements",
+        "options": {},
+        "query": "={{ JSON.stringify({ cliente_id: String($('MongoDB - Cerca Cliente').first().json._id) }) }}"
+      },
+      "id": "78dc603a-acee-4378-a89d-c72cf5af2f81",
+      "name": "MongoDB - Cerca Movimenti",
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.1,
+      "position": [
+        2560,
+        96
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "mongoDb": {
+          "id": "8CO41cA5SdkQ0aAv",
+          "name": "MongoDB account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const cliente = $('MongoDB - Cerca Cliente').first().json;\n\n// ultimi 5 movimenti, dal più recente (la data può essere Date o testo ISO)\nconst movimenti = $input.all()\n  .map(i => i.json)\n  .filter(m => m && m._id)\n  .map(m => ({ ...m, _id: String(m._id) }))\n  .sort((a, b) => new Date(b.data) - new Date(a.data))\n  .slice(0, 5);\n\nreturn [{ json: {\n  success: true,\n  cliente: {\n    id: String(cliente._id),\n    codice_cliente: cliente.codice_cliente,\n    nome: cliente.nome,\n    cognome: cliente.cognome,\n    email: cliente.email,\n    saldo_punti: cliente.saldo_punti\n  },\n  movimenti,\n  messaggio: 'Cliente trovato'\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2784,
+        96
+      ],
+      "id": "d4195c09-4ad8-4df6-8cf0-be4fad528cc5",
+      "name": "Code - Formatta Risposta"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        3008,
+        96
+      ],
+      "id": "c292439a-3503-4118-90d6-e434203fc7d5",
+      "name": "Respond - Successo"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook Ricerca Cliente": {
+      "main": [
+        [
+          {
+            "node": "IF - Cliente Indicato?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Cliente Indicato?": {
+      "main": [
+        [
+          {
+            "node": "MongoDB - Cerca Cliente",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond - Errore Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MongoDB - Cerca Cliente": {
+      "main": [
+        [
+          {
+            "node": "IF - Cliente Esiste?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Cliente Esiste?": {
+      "main": [
+        [
+          {
+            "node": "MongoDB - Cerca Movimenti",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond - Cliente Non Trovato",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MongoDB - Cerca Movimenti": {
+      "main": [
+        [
+          {
+            "node": "Code - Formatta Risposta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Formatta Risposta": {
+      "main": [
+        [
+          {
+            "node": "Respond - Successo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "9fb69f23-d9e2-4c2b-8d25-3238499d9db5",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "2f4c030ca5a91da5844fc46a8a504179c1d00959cd4317266fccd7d315c73fde"
+  },
+  "id": "0tXeLTdUhpT9LJuI",
+  "tags": []
+}

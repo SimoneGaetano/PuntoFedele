@@ -1,0 +1,57 @@
+[{
+  "_id": {
+    "$oid": "6ae753591cd6a04d5f8de666"
+  },
+  "cliente_id": "6ae60ea195d55fb2808de666",
+  "tipo": "acquisto",
+  "importo_euro": 50,
+  "punti": 50,
+  "data": {
+    "$date": "2026-05-10T10:30:00.000Z"
+  },
+  "operatore": "operatore",
+  "note": "Acquisto prodotti alimentari"
+},
+{
+  "_id": {
+    "$oid": "6ae753591cd6a04d5f8de667"
+  },
+  "cliente_id": "6ae60ea195d55fb2808de668",
+  "tipo": "acquisto",
+  "importo_euro": 100,
+  "punti": 100,
+  "data": {
+    "$date": "2026-05-12T14:15:00.000Z"
+  },
+  "operatore": "operatore",
+  "note": "Acquisto elettronica"
+},
+{
+  "_id": {
+    "$oid": "6ae753591cd6a04d5f8de668"
+  },
+  "cliente_id": "6ae60ea195d55fb2808de669",
+  "tipo": "acquisto",
+  "importo_euro": 20,
+  "punti": 20,
+  "data": {
+    "$date": "2026-05-15T09:00:00.000Z"
+  },
+  "operatore": "operatore",
+  "note": "Acquisto abbigliamento"
+},
+{
+  "_id": {
+    "$oid": "6ae753591cd6a04d5f8de669"
+  },
+  "cliente_id": "6ae60ea195d55fb2808de666",
+  "tipo": "annullamento",
+  "importo_euro": 50,
+  "punti": -50,
+  "data": {
+    "$date": "2026-05-11T11:00:00.000Z"
+  },
+  "operatore": "admin",
+  "note": "Storno acquisto errato",
+  "movimento_originale_id": "6ae753591cd6a04d5f8de666"
+}]

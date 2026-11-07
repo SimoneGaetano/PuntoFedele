@@ -1,0 +1,858 @@
+{
+  "name": "04 - Storico Movimenti e Annullamento",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "movimenti",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "57d37a30-608a-4bd4-9fb8-89303431185b",
+      "name": "Webhook Movimenti",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        1664,
+        1984
+      ],
+      "webhookId": "a3e9078e-c863-4dfd-8113-61b214019d65"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nconst b = item.body || {};\nconst isId = v => typeof v === 'string' && /^[0-9a-fA-F]{24}$/.test(v);\nconst isData = v => typeof v === 'string' && !isNaN(Date.parse(v));\n\nlet status = 400;\nlet errore = 'INPUT_NON_VALIDO';\nlet messaggio = null;\n\nif (!['storico', 'annullamento'].includes(b.azione)) {\n  messaggio = \"Campo 'azione' mancante o non valido (storico | annullamento)\";\n} else if (b.azione === 'storico') {\n  // tutti i filtri sono opzionali\n  if (b.cliente_id && !isId(b.cliente_id)) messaggio = \"'cliente_id' non valido\";\n  else if (b.data_da && !isData(b.data_da)) messaggio = \"'data_da' non valida (usa YYYY-MM-DD)\";\n  else if (b.data_a && !isData(b.data_a)) messaggio = \"'data_a' non valida (usa YYYY-MM-DD)\";\n} else {\n  if (!isId(b.movimento_id)) messaggio = \"Campo 'movimento_id' mancante o non valido\";\n  else if (!b.ruolo) messaggio = \"Campo 'ruolo' mancante\";\n  else if (!b.operatore) messaggio = \"Campo 'operatore' mancante\";\n  else if (b.ruolo !== 'Amministratore') {\n    status = 403;\n    errore = 'NON_AUTORIZZATO';\n    messaggio = \"Solo l'Amministratore può annullare operazioni\";\n  }\n}\n\nreturn [{ json: {\n  ...item,\n  ok: messaggio === null,\n  status,\n  errore,\n  messaggio,\n  filtro: b.cliente_id ? { cliente_id: String(b.cliente_id) } : {}\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1888,
+        1984
+      ],
+      "id": "399e5677-bbe0-44ec-9f3a-77e4cdbe2876",
+      "name": "Code - Valida Input"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "2fb15e29-fd7b-4d50-8a41-24857bf7fd3e",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2112,
+        1984
+      ],
+      "id": "bcdd6a66-45e9-448d-a9d8-65b4bd8a9ab3",
+      "name": "IF - Richiesta Valida?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: false, errore: $json.errore, messaggio: $json.messaggio } }}",
+        "options": {
+          "responseCode": "={{ $json.status }}"
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        2336,
+        2224
+      ],
+      "id": "5f9598d6-ce90-4a3b-aa38-dde2d57a5d0e",
+      "name": "Respond - Errore Richiesta"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "d328b2c5-2e8c-46e5-b465-af00a53cb5ab",
+              "leftValue": "={{ $json.body.azione }}",
+              "rightValue": "storico",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2336,
+        1984
+      ],
+      "id": "52bc0f97-4a2b-49e6-a774-fdaacd9e31d8",
+      "name": "IF - Azione Storico?"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "71b5a9b1-f8cd-4b20-a1b7-96cdc277d939",
+              "leftValue": "={{ $json.body.cliente_id || '' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2560,
+        1792
+      ],
+      "id": "0a3418d6-e1f6-41e8-940d-a552b29ab498",
+      "name": "IF - Cliente Specificato?"
+    },
+    {
+      "parameters": {
+        "collection": "clients",
+        "options": {
+          "limit": 1
+        },
+        "query": "={{ JSON.stringify({ $expr: { $eq: [{ $toString: '$_id' }, String($('Webhook Movimenti').first().json.body.cliente_id)] } }) }}"
+      },
+      "id": "0d60fa27-8593-47c2-989d-19bb0d07c44a",
+      "name": "MongoDB - Verifica Cliente",
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.1,
+      "position": [
+        2784,
+        1696
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "mongoDb": {
+          "id": "8CO41cA5SdkQ0aAv",
+          "name": "MongoDB account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "921a196a-3f91-4238-b982-e3b16af89d0b",
+              "leftValue": "={{ $json._id ? String($json._id) : '' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3008,
+        1696
+      ],
+      "id": "d2e2d6b3-960f-4d17-ab71-aec741044543",
+      "name": "IF - Cliente Esiste?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ {\"success\": false, \"errore\": \"CLIENTE_NON_TROVATO\", \"messaggio\": \"Il cliente richiesto non esiste\"} }}",
+        "options": {
+          "responseCode": 404
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        3232,
+        1584
+      ],
+      "id": "1a3db0ab-a7be-4684-9d4c-e10380bdf524",
+      "name": "Respond - Cliente Non Trovato"
+    },
+    {
+      "parameters": {
+        "collection": "purchases_movements",
+        "options": {},
+        "query": "={{ JSON.stringify($('Code - Valida Input').first().json.filtro) }}"
+      },
+      "id": "a456447d-e669-4876-b30a-a594d7c4ad72",
+      "name": "MongoDB - Cerca Movimenti",
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.1,
+      "position": [
+        3232,
+        1808
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "mongoDb": {
+          "id": "8CO41cA5SdkQ0aAv",
+          "name": "MongoDB account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const b = $('Webhook Movimenti').first().json.body;\nconst tutti = $input.all().map(i => i.json).filter(m => m && m._id);\n\nconst da = b.data_da ? new Date(b.data_da) : null;\nconst a = b.data_a ? new Date(b.data_a) : null;\nif (a && String(b.data_a).length <= 10) a.setUTCHours(23, 59, 59, 999); // include l'intero giorno finale\n\n// un movimento è annullato se esiste un movimento \"annullamento\" che punta a lui\nconst annullati = new Set(\n  tutti.filter(m => m.tipo === 'annullamento').map(m => String(m.movimento_originale_id))\n);\n\nconst movimenti = tutti\n  .filter(m => !b.tipo || m.tipo === b.tipo)\n  .filter(m => {\n    const d = new Date(m.data);\n    return (!da || d >= da) && (!a || d <= a);\n  })\n  .map(m => ({ ...m, _id: String(m._id), annullato: annullati.has(String(m._id)) }))\n  .sort((x, y) => new Date(y.data) - new Date(x.data));\n\nreturn [{ json: {\n  success: true,\n  azione: 'storico',\n  totale: movimenti.length,\n  movimenti,\n  messaggio: movimenti.length ? 'Storico movimenti recuperato' : 'Nessun movimento trovato con i filtri indicati'\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3456,
+        1808
+      ],
+      "id": "bd20b7a4-8eab-4e3c-9fc8-ce7557178779",
+      "name": "Code - Filtra e Formatta"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        3680,
+        1808
+      ],
+      "id": "71f8266e-93db-4bbb-90ce-ef1adbfbb739",
+      "name": "Respond - Successo Storico"
+    },
+    {
+      "parameters": {
+        "collection": "purchases_movements",
+        "options": {
+          "limit": 1
+        },
+        "query": "={{ JSON.stringify({ $expr: { $eq: [{ $toString: '$_id' }, String($('Webhook Movimenti').first().json.body.movimento_id)] } }) }}"
+      },
+      "id": "664e5f00-cc82-45be-989f-4669784ff334",
+      "name": "MongoDB - Cerca Movimento",
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.1,
+      "position": [
+        2560,
+        2288
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "mongoDb": {
+          "id": "8CO41cA5SdkQ0aAv",
+          "name": "MongoDB account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "09e02cc5-4bdb-4f38-870a-b7a83ae7bb1e",
+              "leftValue": "={{ $json._id ? String($json._id) : '' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "f8df929b-0bd6-4e24-9985-141905ccabb9",
+              "leftValue": "={{ $json.tipo || '' }}",
+              "rightValue": "annullamento",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2784,
+        2288
+      ],
+      "id": "db86b672-1fe5-41b4-acf4-734b48490a90",
+      "name": "IF - Movimento Annullabile?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ {\"success\": false, \"errore\": \"MOVIMENTO_NON_ANNULLABILE\", \"messaggio\": \"Il movimento non esiste oppure e gia un annullamento\"} }}",
+        "options": {
+          "responseCode": 404
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        3008,
+        2416
+      ],
+      "id": "9d58c23e-3af5-42ef-9235-468005fab01a",
+      "name": "Respond - Movimento Non Annullabile"
+    },
+    {
+      "parameters": {
+        "collection": "purchases_movements",
+        "options": {
+          "limit": 1
+        },
+        "query": "={{ JSON.stringify({ movimento_originale_id: String($('MongoDB - Cerca Movimento').first().json._id) }) }}"
+      },
+      "id": "372fb71f-bc18-447f-98b5-e6ab9c36898d",
+      "name": "MongoDB - Cerca Annullamento Esistente",
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.1,
+      "position": [
+        3008,
+        2224
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "mongoDb": {
+          "id": "8CO41cA5SdkQ0aAv",
+          "name": "MongoDB account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "f8bb1a27-a7d0-47e1-88dc-5998c924fef3",
+              "leftValue": "={{ $json._id ? String($json._id) : '' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3232,
+        2224
+      ],
+      "id": "f6bfb641-5dc0-4bff-b8b9-ef0a8ab32dbc",
+      "name": "IF - Gia Annullato?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ {\"success\": false, \"errore\": \"MOVIMENTO_GIA_ANNULLATO\", \"messaggio\": \"Questo movimento risulta gia annullato e non puo essere annullato di nuovo\"} }}",
+        "options": {
+          "responseCode": 409
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        3456,
+        2368
+      ],
+      "id": "eacfcb6b-bf00-4fd6-b2ac-55b54bb55911",
+      "name": "Respond - Gia Annullato"
+    },
+    {
+      "parameters": {
+        "collection": "clients",
+        "options": {
+          "limit": 1
+        },
+        "query": "={{ JSON.stringify({ $expr: { $eq: [{ $toString: '$_id' }, String($('MongoDB - Cerca Movimento').first().json.cliente_id)] } }) }}"
+      },
+      "id": "5c78a6db-cd10-4dd6-8687-8c405094a17a",
+      "name": "MongoDB - Cerca Cliente Movimento",
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.1,
+      "position": [
+        3456,
+        2144
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "mongoDb": {
+          "id": "8CO41cA5SdkQ0aAv",
+          "name": "MongoDB account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const mov = $('MongoDB - Cerca Movimento').first().json;\nconst cliente = $input.first().json;\n\nif (!cliente._id) throw new Error('Cliente del movimento non trovato: impossibile correggere il saldo');\n\nconst punti = Math.abs(Number(mov.punti) || 0);\n// annullare un acquisto toglie punti; annullare un utilizzo di punti li restituisce\nconst puntiStorno = mov.tipo === 'acquisto' ? -punti : punti;\nconst saldoPrecedente = Number(cliente.saldo_punti) || 0;\n\nreturn [{ json: {\n  email: cliente.email,\n  saldo_precedente: saldoPrecedente,\n  punti_storno: puntiStorno,\n  saldo_punti: saldoPrecedente + puntiStorno\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3680,
+        2144
+      ],
+      "id": "fe812668-93aa-4a21-a333-3a7e7c465e7c",
+      "name": "Code - Calcolo Nuovo Saldo"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "collection": "clients",
+        "updateKey": "email",
+        "fields": "saldo_punti",
+        "options": {}
+      },
+      "id": "82d0e4c1-e66d-46e5-b9db-d1d31bb4ea0f",
+      "name": "MongoDB - Aggiorna Cliente",
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.1,
+      "position": [
+        3904,
+        2144
+      ],
+      "credentials": {
+        "mongoDb": {
+          "id": "8CO41cA5SdkQ0aAv",
+          "name": "MongoDB account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ec2649e8-4b8f-4730-972a-d535ae5b2439",
+              "name": "cliente_id",
+              "value": "={{ String($('MongoDB - Cerca Movimento').first().json.cliente_id) }}",
+              "type": "string"
+            },
+            {
+              "id": "68e9f39b-8d89-41f7-a395-026de43fefe7",
+              "name": "tipo",
+              "value": "annullamento",
+              "type": "string"
+            },
+            {
+              "id": "fd99451f-93b4-4b76-817e-34f8aa82ab3a",
+              "name": "importo_euro",
+              "value": "={{ -(Number($('MongoDB - Cerca Movimento').first().json.importo_euro) || 0) }}",
+              "type": "number"
+            },
+            {
+              "id": "0ad5d1bb-ff26-499e-a596-0ab26a1a5714",
+              "name": "punti",
+              "value": "={{ $('Code - Calcolo Nuovo Saldo').first().json.punti_storno }}",
+              "type": "number"
+            },
+            {
+              "id": "e79f83bc-5177-40cf-89b9-775a80e72c68",
+              "name": "data",
+              "value": "={{ new Date().toISOString() }}",
+              "type": "string"
+            },
+            {
+              "id": "b2b5a8b0-2725-4b31-bf98-5e274e9dda13",
+              "name": "operatore",
+              "value": "={{ $('Webhook Movimenti').first().json.body.operatore }}",
+              "type": "string"
+            },
+            {
+              "id": "a72f5742-81a7-48bc-93f8-0d39ade1b233",
+              "name": "note",
+              "value": "={{ 'Annullamento del movimento ' + String($('MongoDB - Cerca Movimento').first().json._id) }}",
+              "type": "string"
+            },
+            {
+              "id": "4b5e104a-7e7f-4661-babe-f3a00d212a97",
+              "name": "movimento_originale_id",
+              "value": "={{ String($('MongoDB - Cerca Movimento').first().json._id) }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        4128,
+        2144
+      ],
+      "id": "b4110e8e-d5d0-4ac9-9771-dd5be0f8e4bd",
+      "name": "Set - Prepara Annullamento"
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "collection": "purchases_movements",
+        "fields": "cliente_id,tipo,importo_euro,punti,data,operatore,note,movimento_originale_id",
+        "options": {
+          "dateFields": "data"
+        }
+      },
+      "id": "eeb98c7d-8aac-4887-810a-d04efb054e78",
+      "name": "MongoDB - Inserisci Annullamento",
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.1,
+      "position": [
+        4352,
+        2144
+      ],
+      "credentials": {
+        "mongoDb": {
+          "id": "8CO41cA5SdkQ0aAv",
+          "name": "MongoDB account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, azione: 'annullamento', movimento_annullato_id: String($('MongoDB - Cerca Movimento').first().json._id), movimento_annullamento_id: String($json.id || $json._id), cliente_id: String($('MongoDB - Cerca Movimento').first().json.cliente_id), saldo_precedente: $('Code - Calcolo Nuovo Saldo').first().json.saldo_precedente, punti_stornati: $('Code - Calcolo Nuovo Saldo').first().json.punti_storno, nuovo_saldo_punti: $('Code - Calcolo Nuovo Saldo').first().json.saldo_punti, messaggio: 'Annullamento effettuato con storno punti' } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        4576,
+        2144
+      ],
+      "id": "dd208ca7-6582-4de8-9169-8e27d7ef9fd4",
+      "name": "Respond - Successo Annullamento"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook Movimenti": {
+      "main": [
+        [
+          {
+            "node": "Code - Valida Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Valida Input": {
+      "main": [
+        [
+          {
+            "node": "IF - Richiesta Valida?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Richiesta Valida?": {
+      "main": [
+        [
+          {
+            "node": "IF - Azione Storico?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond - Errore Richiesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Azione Storico?": {
+      "main": [
+        [
+          {
+            "node": "IF - Cliente Specificato?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "MongoDB - Cerca Movimento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Cliente Specificato?": {
+      "main": [
+        [
+          {
+            "node": "MongoDB - Verifica Cliente",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "MongoDB - Cerca Movimenti",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MongoDB - Verifica Cliente": {
+      "main": [
+        [
+          {
+            "node": "IF - Cliente Esiste?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Cliente Esiste?": {
+      "main": [
+        [
+          {
+            "node": "MongoDB - Cerca Movimenti",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond - Cliente Non Trovato",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MongoDB - Cerca Movimenti": {
+      "main": [
+        [
+          {
+            "node": "Code - Filtra e Formatta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Filtra e Formatta": {
+      "main": [
+        [
+          {
+            "node": "Respond - Successo Storico",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MongoDB - Cerca Movimento": {
+      "main": [
+        [
+          {
+            "node": "IF - Movimento Annullabile?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Movimento Annullabile?": {
+      "main": [
+        [
+          {
+            "node": "MongoDB - Cerca Annullamento Esistente",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond - Movimento Non Annullabile",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MongoDB - Cerca Annullamento Esistente": {
+      "main": [
+        [
+          {
+            "node": "IF - Gia Annullato?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Gia Annullato?": {
+      "main": [
+        [
+          {
+            "node": "Respond - Gia Annullato",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "MongoDB - Cerca Cliente Movimento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MongoDB - Cerca Cliente Movimento": {
+      "main": [
+        [
+          {
+            "node": "Code - Calcolo Nuovo Saldo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Calcolo Nuovo Saldo": {
+      "main": [
+        [
+          {
+            "node": "MongoDB - Aggiorna Cliente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MongoDB - Aggiorna Cliente": {
+      "main": [
+        [
+          {
+            "node": "Set - Prepara Annullamento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set - Prepara Annullamento": {
+      "main": [
+        [
+          {
+            "node": "MongoDB - Inserisci Annullamento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MongoDB - Inserisci Annullamento": {
+      "main": [
+        [
+          {
+            "node": "Respond - Successo Annullamento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "0a05fabf-b534-4575-9421-1e200cad18c6",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "2f4c030ca5a91da5844fc46a8a504179c1d00959cd4317266fccd7d315c73fde"
+  },
+  "id": "snGykWuajSygWyWt",
+  "tags": []
+}
