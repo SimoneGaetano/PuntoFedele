@@ -6,16 +6,17 @@ Struttura delle collection, dati di esempio e script per ricreare o ripristinare
 
 | File | A cosa serve |
 |---|---|
-| `users.json`, `clients.json`, `purchases_movements.json`, `rewards_catalog.json` | dati di esempio esportati da MongoDB Compass (una collection per file) |
-| `crea_database.js` | **crea da zero** il database: svuota le 4 collection e inserisce tutti i dati di partenza, con gli indici |
+| `fidelity_db.users.json`, `fidelity_db.clients.json`, `fidelity_db.purchases_movements.json`, `fidelity_db.rewards_catalog.json` | dati di esempio esportati da MongoDB Compass (una collection per file) |
+| `crea_database.js` | **crea da zero** il database: svuota le 4 collection e inserisce i dati di partenza, con gli indici |
 | `reset_dati.js` | **ripristina** i dati di prova dopo i test: cancella i movimenti creati, rimette i saldi dei clienti, la disponibilità dei premi e riattiva gli utenti |
+| `docker-compose.yml`, `mongo-init.js`, `init_users_auth.js`, `init_clients.js`, `init_purchases_movements.js`, `init_rewards_catalog.js` | setup con Docker: avvia MongoDB e inizializza il database con gli script `init_*` |
 
 ## Come ricreare il database
 
 **Con Compass, da file JSON**
 
-1. Collegarsi a `mongodb://localhost:27017`, creare il database `fidelity_db`.
-2. Per ciascuna delle 4 collection: *Create collection* con il nome esatto, poi *Add Data → Import JSON file* e scegliere il file corrispondente.
+1. Collegarsi a `mongodb://localhost:27017` e creare il database `fidelity_db`.
+2. Per ciascuna delle 4 collection: *Create collection* con il nome esatto (`users`, `clients`, `purchases_movements`, `rewards_catalog`), poi *Add Data → Import JSON file* e scegliere il file `fidelity_db.<collection>.json` corrispondente.
 
 **Con lo script** (equivalente)
 
@@ -23,6 +24,10 @@ Struttura delle collection, dati di esempio e script per ricreare o ripristinare
 2. Incollare **tutto** il contenuto di `crea_database.js` e premere Invio. Alla fine stampa il numero di documenti per collection (3, 5, 4, 5).
 
 Attenzione: lo script cancella i dati presenti nelle 4 collection.
+
+**Con Docker**
+
+Avviare MongoDB con `docker compose up -d` dalla cartella `mongodb/`: gli script `init_*` e `mongo-init.js` inizializzano il database.
 
 ## Come riportare i dati allo stato iniziale
 

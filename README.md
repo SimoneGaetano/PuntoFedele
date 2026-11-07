@@ -28,8 +28,8 @@ Flutter comunica con MongoDB **esclusivamente tramite le API n8n**. I permessi s
 | Cartella | Contenuto |
 |---|---|
 | `flutter/` | progetto Flutter Web (codice, asset, configurazioni) |
-| `n8n/` | i 6 workflow esportati in JSON, `README_n8n.md` e la documentazione delle API (PDF e Markdown) |
-| `mongodb/` | struttura delle collection, dati di esempio e script di reset |
+| `n8n/` | i 6 workflow esportati in JSON, `README_n8n.md` e la documentazione delle API (`Documentazione_API_Fidelity_Card.pdf` e `.md`) |
+| `mongodb/` | struttura delle collection (`README.md`), dati di esempio in JSON, script di creazione e di reset, setup Docker |
 | `screenshots/` | immagini dell'applicazione funzionante |
 | `video/` | registrazione dimostrativa |
 | `branding/` | logo, palette e asset grafici |
@@ -44,8 +44,11 @@ Flutter comunica con MongoDB **esclusivamente tramite le API n8n**. I permessi s
 
 ### 1. MongoDB
 
-1. Avviare MongoDB.
-2. Creare il database `fidelity_db` e importare in Compass i file della cartella `mongodb/` nelle collection `users`, `clients`, `purchases_movements`, `rewards_catalog` (*Add Data → Import JSON*). In alternativa usare lo script indicato in `mongodb/`.
+1. Avviare MongoDB in locale oppure con Docker (`mongodb/docker-compose.yml`).
+2. Creare il database `fidelity_db` con le 4 collection. Due modi:
+   * in Compass, *Add Data → Import JSON file* con i file `mongodb/fidelity_db.users.json`, `fidelity_db.clients.json`, `fidelity_db.purchases_movements.json`, `fidelity_db.rewards_catalog.json` (ognuno nella collection con lo stesso nome);
+   * oppure incollare `mongodb/crea_database.js` nel pannello `>_MONGOSH` di Compass.
+3. Dettagli e struttura dei dati: `mongodb/README.md`.
 
 ### 2. n8n
 
@@ -72,7 +75,7 @@ flutter pub get
 flutter run -d chrome
 ```
 
-L'indirizzo base di n8n si trova in `lib/services/api_service.dart` (per impostazione `http://localhost:5678/webhook`).
+L'indirizzo base di n8n si trova in `flutter/lib/config.dart`.
 
 ## Utenti di test
 
@@ -102,9 +105,19 @@ Catalogo premi: Buono da 5 € (100 punti), Tazza (250), Buono da 20 € (500), 
 4. In **Catalogo Premi** cercare `FC-0003` e riscattare un premio → il saldo scende del costo del premio.
 5. Aprire **Dashboard** (anche come `responsabile`): gli indicatori e i grafici riflettono le operazioni fatte.
 
+## Se qualcosa non funziona
+
+| Sintomo | Causa probabile | Rimedio |
+|---|---|---|
+| Il login non risponde o dà errore di rete | workflow non pubblicati, o indirizzo n8n sbagliato | pubblicare i 6 workflow; controllare `lib/config.dart` |
+| Funziona da Postman ma non da Flutter Web | manca l'opzione CORS nel Webhook | nel nodo Webhook: *Options → Allowed Origins (CORS)* = `*`, poi ripubblicare |
+| I nodi MongoDB danno errore di credenziale | credenziale non selezionata dopo l'import | scegliere la credenziale MongoDB in **tutti** i nodi MongoDB dei workflow |
+| n8n non si collega a MongoDB | n8n in Docker e MongoDB sul PC | usare `host.docker.internal` al posto di `localhost` nella connessione |
+| Dati strani dopo molte prove | movimenti e saldi modificati dai test | eseguire `mongodb/reset_dati.js` in Compass (`>_MONGOSH`) |
+
 ## Documentazione
 
-* `n8n/Documentazione_API_Fidelity_Card.pdf`: descrizione di ogni workflow nodo per nodo, struttura dei dati e test Postman con le risposte attese.
+* `n8n/Documentazione_API_Fidelity_Card.pdf` (e la versione `.md`): descrizione di ogni workflow nodo per nodo, struttura dei dati e test Postman con le risposte attese.
 * `n8n/README_n8n.md`: istruzioni brevi per importare e provare i workflow.
 * `branding/PALETTE_E_LOGO.md`: logo e palette colori.
 
